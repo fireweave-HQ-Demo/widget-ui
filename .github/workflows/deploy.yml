@@ -72,6 +72,14 @@ jobs:
               echo "HOST=0.0.0.0"
             } > .env
             set -a && source .env && set +a
+            if [ -z "${POSTHOG_API_KEY:-}" ]; then
+              echo "::error::POSTHOG_API_KEY secret is empty — rebuild will bake flags as always false"
+              exit 1
+            fi
+            echo "[deploy] POSTHOG_API_KEY is set (length=${#POSTHOG_API_KEY})"
+            export VITE_POSTHOG_API_KEY="${POSTHOG_API_KEY}"
+            export VITE_POSTHOG_HOST="${POSTHOG_HOST:-https://us.i.posthog.com}"
+            export VITE_FLAG_KEY="${VITE_FLAG_KEY:-widget-demo-feature}"
             bun install
             bun run build
             chmod +x deploy/start.sh
