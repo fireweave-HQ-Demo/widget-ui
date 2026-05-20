@@ -24,7 +24,7 @@ Deploy workflow does not require these secrets (noop deploy only needs `GITHUB_T
 
 ## Cloud deploy (GitHub Actions → VM)
 
-Same SSH secrets as widget-svc. Live: `http://217.216.59.25:3102`
+Same SSH secrets as widget-svc. Default VM path: `/root/test/widget-ui`. Live: `http://217.216.59.25:3102`
 
 ## FireWeave wiring
 

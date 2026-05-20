@@ -15,6 +15,7 @@ jobs:
 
     env:
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      DEPLOY_BRANCH: ${{ vars.DEPLOY_BRANCH }}
       VITE_FLAG_KEY: widget-demo-feature
 
     steps:
@@ -38,24 +39,26 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           DEPLOY_PATH: ${{ env.DEPLOY_PATH }}
-          GITHUB_SHA: ${{ github.sha }}
+          DEPLOY_BRANCH: ${{ env.DEPLOY_BRANCH }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          VITE_FLAG_KEY: ${{ env.VITE_FLAG_KEY }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: DEPLOY_PATH,GITHUB_SHA,VITE_FLAG_KEY,VITE_POSTHOG_API_KEY,VITE_POSTHOG_HOST
+          envs: DEPLOY_PATH,DEPLOY_BRANCH,VITE_FLAG_KEY,VITE_POSTHOG_API_KEY,VITE_POSTHOG_HOST
           script: |
             set -euo pipefail
-            export PATH="/root/.bun/bin:$PATH"
-            DEPLOY_PATH="${DEPLOY_PATH:-/opt/fireweave/widget-ui}"
-            echo "[deploy] path=$DEPLOY_PATH sha=$GITHUB_SHA"
+            export PATH="/root/.bun/bin:/usr/local/bin:$PATH"
+            DEPLOY_PATH="${DEPLOY_PATH:-/root/test/widget-ui}"
+            DEPLOY_BRANCH="${DEPLOY_BRANCH:-main}"
+            echo "[deploy] path=$DEPLOY_PATH branch=$DEPLOY_BRANCH"
             cd "$DEPLOY_PATH"
             git fetch origin
-            git checkout main
-            git reset --hard "$GITHUB_SHA" 2>/dev/null || git reset --hard origin/main
+            git checkout "$DEPLOY_BRANCH"
+            git pull origin "$DEPLOY_BRANCH"
             {
               echo "VITE_FLAG_KEY=${VITE_FLAG_KEY:-widget-demo-feature}"
               echo "VITE_POSTHOG_API_KEY=${VITE_POSTHOG_API_KEY:-}"
@@ -65,10 +68,12 @@ jobs:
             bun install
             bun run build
             rm -f .env.build
-            systemctl restart widget-ui
-            sleep 2
+            command -v pm2 >/dev/null || npm install -g pm2
+            pm2 startOrRestart deploy/ecosystem.config.cjs --update-env
+            pm2 save
+            sleep 3
             curl -sf "http://127.0.0.1:3102" -o /dev/null
-            echo "[deploy] widget-ui healthy"
+            echo "[deploy] widget-ui healthy (pm2)"
 
       - name: Mark deployment success
         if: steps.ssh_deploy.outcome == 'success'
